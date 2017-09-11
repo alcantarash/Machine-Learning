@@ -1,0 +1,228 @@
+\documentclass[11pt]{article}
+
+%\usepackage[brazil]{babel}
+\usepackage[latin1]{inputenc}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{subfigure}
+\usepackage{a4wide}
+\usepackage{fancyhdr}
+\usepackage[Algoritmo]{algorithm}
+\usepackage{algorithmic}
+\usepackage{tikz}
+\usepackage{empheq}
+\usetikzlibrary{trees}
+\usepackage{multirow}
+\usepackage{subfigure}
+\usepackage{amssymb,amsmath}
+\usepackage{amsthm,amsfonts}
+\usepackage{float}
+
+\pagestyle{fancy}
+\lhead{Programming Exercise 1: Linear Regression}
+\rhead{\thepage}
+%\addtolength{\headheight}{\baselineskip}
+\renewcommand{\headrulewidth}{0.1pt}
+\renewcommand{\footrulewidth}{0.1pt}
+\lfoot{An\'{i}sio Mendes Lacerda}
+\rfoot{Machine Learning Class -- CEFET-MG}
+\cfoot{}
+
+\sloppy
+
+\begin{document}
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\algorithmicend}{\textbf{fim}}
+\renewcommand{\algorithmicif}{\textbf{se}}
+\renewcommand{\algorithmicthen}{\textbf{então}}
+\renewcommand{\algorithmicelse}{\textbf{senão}}
+\renewcommand{\algorithmicfor}{\textbf{para}}
+\renewcommand{\algorithmicdo}{\textbf{faça}}
+\renewcommand{\algorithmicwhile}{\textbf{enquanto}}
+\thispagestyle{empty}
+
+\begin{center}
+\begin{minipage}[l]{10cm}{
+\center
+Programming Exercise 1\\
+%Projeto XXXX \\
+}\end{minipage}
+ \vfill
+ \begin{minipage}[l]{11cm}{
+   \begin{center}
+   \Large{Linear Regression}
+   \end{center}
+}\end{minipage}
+\end{center}
+ \vspace*{8cm}
+ \begin{center}
+ \begin{minipage}[l]{10cm}{
+ \center An\'{i}sio Mendes Lacerda\\
+Machine Learning Class -- CEFET-MG\\
+ }
+ \end{minipage}
+ \end{center}
+%\newpage
+%\thispagestyle{empty}
+%\tableofcontents
+\newpage
+
+\section{Introduction}
+
+A very important and general problem in Machine Learning, which has a large set of applications,
+is \textit{learning} or \textit{inferring} a functional relationship between a set of \textit{attribute} variables and
+associated \textit{response} variables~\cite{prml,esl}.
+Remember that, in class, we learned two types of linear regression models:
+(i) simple linear regression (with one feature), and
+(ii) multiple linear regression (with more than one features).
+The idea of this programming exercise is to complement the concepts learned in class with important
+new algorithms and techniques.
+
+In this programming exercise, you will implement linear regression and get to see it work on real data.
+Throughout the exercise, you will be using the files \texttt{ex1.ipynb} and \texttt{ex1-multi.ipynb}.
+These files set up the dataset for the problems and make calls to functions that you will write.
+You do not need to modify either of them.
+You are only required to modify functions in other files, by following the instructions in this assignment.
+
+\subsection{Files included in this exercise}
+
+\begin{itemize}
+	\item \texttt{pa1.pdf} This file.
+	\item \texttt{ex1.ipynb} The notebook file that will help you throughout the programming assignment.
+	\item \texttt{ex1data1.txt} Dataset for simple linear implementations.
+	\item \texttt{ex1data2.txt} Dataset for multivariate implementations.
+	%http://people.bu.edu/zg/daily-deals-dataset.html
+	\item \texttt{daily-deals-data.tar.gz} Dataset for real world experimentation on multivariate linear regression.
+\end{itemize}
+
+\section{Linear programming with one variable}
+
+In part of the assignment, you are asked to implement linear regression with one feature to predict profits for a food truck.
+The idea is that you are the CEO of a restaurant franchise and are considering different cities for opening a new outlet.
+In other words, we are considering cities to send more food trucks.
+Obviously, our aim is finding a way to maximize our profit.
+
+Since you are the CEO of a big chain to restaurants, you has trucks in various cities and you have data for profits and populations from the cities.
+Hence, you are able to examine the data from these and predict the profits of future trucks.
+Given that we have this training dataset with a label associated to each instance, this is a supervised learning rather than an unsupervised learning task.
+The dataset includes the population sizes of the cities where we already have food trucks, and our profits from each of these cities.
+This is an univariate (as opposed to multivariate) linear regression because we only have one input feature (i.e., the population size) per target variable that we're trying to predict (i.e, the profit).
+
+\subsection{Plotting the Data}
+
+Before starting to solve any problem with machine learning, it is often useful to understand the data by visualizing it.
+For this dataset, you can use a scatter plot to visualize the data, given that it has only two properties (population and profit).
+Obviously, the vast majority of problems that you will encounter in real life are multi-dimensional and can't be plotted on a $2$-d plot.
+
+In \texttt{ex1.ipynb}, the dataset is loaded from the data file into the variables \textit{X} and \textit{y}:
+
+\begin{verbatim}
+data = pd.read_csv('ex1data1.txt', header=None, names=['Population', 'Profit'])
+data.head()
+\end{verbatim}
+
+Next, you are asked to plot the data. Hence, execute the following code:
+
+\begin{verbatim}
+data.plot(kind='scatter', x='Population', y='Profit', figsize=(12,8),grid=True);
+\end{verbatim}
+
+\subsection{Gradient descent}
+
+In class, we learn how to use a closed pair of equations to find the parameters of our linear model (i.e., the $\beta_{i}$s).
+That method can be generalized to find the parameters of a multivariate linear regression.
+However, this approach has very problematic issues regarding scalability, i.e., it doesn't scale very well for large data sets.
+In contrast, in this assignment, we are going to use an optimization algorithm called gradient descent to find the parameters $\beta$.
+This optimization method scale to data sets of unlimited size, so for machine learning problems this is a more practical approach.
+
+\vspace{.3cm}
+\noindent\textbf{TASK 0: Study and understand how gradient descent works. After that, document it and report your
+understanding. Include equations, figures, and every resource that you need to explain the algorithm.}
+
+\subsubsection{Update equations}
+
+The first thing we need is a cost function.
+The cost function evaluates the quality of our model by computing the error between our prediction for a data point (using the model parameters) and the actual data point.
+For example, if the population of a given city is 4 and we predicted that it was 7, our error is $(7-4)^{2}=9$ (assuming an L2 or ``\textit{least squares}'' loss function).
+
+Formally, the objective of linear regression is to minimize the cost function:
+
+\begin{equation}
+J(\beta) = \frac{1}{2m} \sum_{i=1}^{n} (h_{\beta}(x_i - y_i))^{2}
+\label{cost}
+\end{equation}
+
+\noindent where, the model $h_{\beta}$ is given by the linear model
+
+\begin{equation}
+h_{\beta}(x) = \beta^{T}x = \beta_{0} + \beta_{1}x_1
+\end{equation}
+
+You are asked to do this for each data point in X and sum the result to get the cost.
+
+\vspace{.3cm}
+\noindent\textbf{TASK 1: Implement Eq.~\ref{cost} in the following function.}
+
+\begin{verbatim}
+def computeCost(X, y, beta):
+\end{verbatim}
+
+\subsubsection{Computing gradient descent}
+
+Recall that the parameters of your model are the $\beta_{j}$ values.
+These are the values you will adjust to minimize cost $J(\beta)$.
+One way to do this is to use the batch gradient descent algorithm.
+In batch gradient descent, each iteration performs the update:
+
+\begin{equation}
+\beta_{j} = \beta_{j} - \alpha \frac{1}{n} \sum_{i=1}^{n} (h_{\beta}(x_i) - y_{i})x_{ij} \;\;\;\;(\mbox{simultaneously update }\beta_{j}\;\mbox{for all }j)
+\label{update}
+\end{equation}
+
+With each step of gradient descent, your parameters $\beta_{j}$, come closer to the optimal values
+that will achieve the lowest cost $J(\beta)$. 
+Next, you will implement gradient descent in the file \texttt{ex1.ipynb}.
+The loop structure has been written for you, and you only need to supply the updates to $\beta$ within each iteration.
+
+Make sure you understand what you trying to optimize and what is being updated.
+Keep in mind that the cost $J(\beta)$ is parameterized by the vector $\beta$, not $X$ and $y$.
+Refer to the equations above equations in this assignment.
+
+\vspace{.3cm}
+\noindent\textbf{TASK 2: Implement Eq.~\ref{update} in the following function.}
+
+\begin{verbatim}
+def gradient_descent(X, y, theta, alpha, iters):
+\end{verbatim}
+
+\subsection{Visualizing J($\beta$)}
+
+In order to verify that the gradient descent is working correctly, you may take a look at the value of $J(\beta)$ and
+check that it is decreasing with each step.
+Assuming that you have implemented gradient descent and compute cost correctly, your value of $J(\beta)$ should
+never increase, and should converge to a steady value by the end of the algorithm.
+
+\section{Multivariate linear regression}
+
+Fit a linear model using the dataset of housing prices \texttt{ex1data2.txt}.
+
+\vspace{.3cm}
+\noindent\textbf{TASK 3: Repeat the analysis conducted in the previous section, but now considering the multivariate dataset..}
+
+\section{A real world dataset}
+
+In~\cite{BMZ12}, the authors analyze a real world daily deals dataset, specifically, using data from Groupon.  
+They investigate relationships between deal features and deal size beyond simple measures such as the offer price.
+
+
+\vspace{.3cm}
+\noindent\textbf{TASK 4: Implement their proposed regression method (ref. Eq. 1) considering the Groupon dataset. The idea is that you will use your implementation of gradient descent on this dataset to fit a multivariate linear model.}
+\vspace{.3cm}
+
+You are expected to discuss any difficult that you have, and convince that you leaned the key concepts of linear regression.
+
+\small
+\bibliographystyle{plain}
+\bibliography{bibfile}
+
+\end{document} 
